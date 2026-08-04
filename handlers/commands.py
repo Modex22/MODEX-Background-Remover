@@ -7,6 +7,8 @@ from database import (
     total_images,
 )
 
+from keyboards import main_keyboard
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -14,11 +16,41 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         "👋 Welcome to MODEX Background Remover!\n\n"
-        "Send me a photo or image file.\n\n"
-        "I'll remove the background or replace it."
+        "Send me any image to begin.\n\n"
+        "Then choose what you want to do from the menu below."
     )
 
-    await update.message.reply_text(text)
+    await update.message.reply_text(
+        text,
+        reply_markup=main_keyboard(),
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    text = (
+        "❓ How to use MODEX Background Remover\n\n"
+
+        "1️⃣ Send an image.\n\n"
+
+        "2️⃣ Choose one of the options below:\n"
+        "🪄 Remove Background\n"
+        "⚪ White Background\n"
+        "⚫ Black Background\n"
+        "🔵 Blue Background\n"
+        "🔴 Red Background\n"
+        "🖼 Replace Background\n\n"
+
+        "3️⃣ If you choose Replace Background,\n"
+        "the bot will ask you to send the new background image.\n\n"
+
+        "Your final image will be sent as a high-quality PNG."
+    )
+
+    await update.message.reply_text(
+        text,
+        reply_markup=main_keyboard(),
+    )
 
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -28,25 +60,11 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         "📊 MODEX Background Remover\n\n"
-        f"👥 Users: {users}\n"
+        f"👥 Total Users: {users}\n"
         f"🖼 Images Processed: {images}"
     )
 
-    await update.message.reply_text(text)
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    text = (
-        "🆘 Help\n\n"
-        "Send any image.\n\n"
-        "Available options:\n"
-        "🟢 Remove Background\n"
-        "⚪ White Background\n"
-        "⚫ Black Background\n"
-        "🔵 Blue Background\n"
-        "🟥 Red Background\n"
-        "🖼 Replace Background"
+    await update.message.reply_text(
+        text,
+        reply_markup=main_keyboard(),
     )
-
-    await update.message.reply_text(text)

@@ -4,23 +4,35 @@ import uuid
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from keyboards import image_options
+from image_utils import (
+    remove_background,
+    add_background,
+    replace_background,
+    load_image,
+    save_image,
+)
+
+from database import increment_images
 
 TEMP_FOLDER = "temp"
 
 
 async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Receives either:
+    - The main image
+    - A replacement background image
+    """
 
-    # -------------------------
-    # Receive replacement background
-    # -------------------------
+    # ------------------------------------
+    # Waiting for replacement background
+    # ------------------------------------
 
     if context.user_data.get("waiting_background"):
 
         if update.message.photo:
 
             telegram_file = await update.message.photo[-1].get_file()
-
             extension = ".jpg"
 
         elif (
@@ -32,7 +44,6 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             telegram_file = await update.message.document.get_file()
 
             filename = update.message.document.file_name or ""
-
             extension = os.path.splitext(filename)[1] or ".png"
 
         else:
@@ -51,22 +62,27 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await telegram_file.download_to_drive(background_path)
 
         context.user_data["background"] = background_path
+        context.user_data["waiting_background"] = False
 
         await update.message.reply_text(
-            "✅ Background received.\n\n"
-            "Now press the Replace Background button again."
+            "✅ Background received.\n\n⏳ Processing..."
+        )
+
+        await process_image(
+            "replace_bg",
+            update,
+            context,
         )
 
         return
 
-    # -------------------------
-    # Receive subject image
-    # -------------------------
+    # ------------------------------------
+    # Receive main image
+    # ------------------------------------
 
     if update.message.photo:
 
         telegram_file = await update.message.photo[-1].get_file()
-
         extension = ".jpg"
 
     elif (
@@ -78,7 +94,6 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         telegram_file = await update.message.document.get_file()
 
         filename = update.message.document.file_name or ""
-
         extension = os.path.splitext(filename)[1] or ".png"
 
     else:
@@ -99,27 +114,55 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["image"] = image_path
 
     await update.message.reply_text(
-        "Choose an option:",
-        reply_markup=image_options(),
+        "✅ Image received!\n\nChoose an option from the menu below."
     )
 
-from database import increment_images
-from image_utils import (
-    remove_background,
-    add_background,
-    replace_background,
-    load_image,
-    save_image,
-)
 
+async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-async def process_image(option, update, context):
+    text = update.message.text
+
+    mapping = {
+        "🪄 Remove Background": "remove_bg",
+        "⚪ White Background": "white_bg",
+        "⚫ Black Background": "black_bg",
+        "🔵 Blue Background": "blue_bg",
+        "🔴 Red Background": "red_bg",
+        "🖼 Replace Background": "replace_bg",
+    }
+
+    if text == "📊 Stats":
+        from handlers.commands import stats
+        await stats(update, context)
+        return
+
+    if text == "❓ Help":
+        from handlers.commands import help_command
+        await help_command(update, context)
+        return
+
+    option = mapping.get(text)
+
+    if option is None:
+        return
+
+    await process_image(
+        option,
+        update,
+        context,
+    )
+
+async def process_image(
+    option: str,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
 
     image_path = context.user_data.get("image")
 
     if not image_path:
 
-        await update.effective_message.reply_text(
+        await update.message.reply_text(
             "❌ Please send an image first."
         )
 
@@ -127,81 +170,85 @@ async def process_image(option, update, context):
 
     if not os.path.exists(image_path):
 
-        await update.effective_message.reply_text(
+        await update.message.reply_text(
             "❌ Image not found."
         )
 
         return
 
-    subject = remove_background(image_path)
+    # -----------------------------
+    # Remove background
+    # -----------------------------
 
-    # -------------------------
-    # Transparent
-    # -------------------------
+    try:
+
+        subject = remove_background(image_path)
+
+    except Exception as e:
+
+        await update.message.reply_text(
+            f"❌ Error:\n{e}"
+        )
+
+        return
+
+    # -----------------------------
+    # Choose output
+    # -----------------------------
 
     if option == "remove_bg":
 
         result = subject
 
-    # -------------------------
-    # White
-    # -------------------------
-
     elif option == "white_bg":
 
         result = add_background(
             subject,
-            (255, 255, 255, 255)
+            (255, 255, 255, 255),
         )
-
-    # -------------------------
-    # Black
-    # -------------------------
 
     elif option == "black_bg":
 
         result = add_background(
             subject,
-            (0, 0, 0, 255)
+            (0, 0, 0, 255),
         )
-
-    # -------------------------
-    # Blue
-    # -------------------------
 
     elif option == "blue_bg":
 
         result = add_background(
             subject,
-            (0, 102, 255, 255)
+            (0, 102, 255, 255),
         )
-
-    # -------------------------
-    # Red
-    # -------------------------
 
     elif option == "red_bg":
 
         result = add_background(
             subject,
-            (255, 0, 0, 255)
+            (255, 0, 0, 255),
         )
-
-    # -------------------------
-    # Replace Background
-    # -------------------------
 
     elif option == "replace_bg":
 
         background_path = context.user_data.get("background")
 
-        if not background_path:
+        if background_path is None:
 
             context.user_data["waiting_background"] = True
 
-            await update.effective_message.reply_text(
-                "🖼 Send me the image you want to use as the NEW background."
+            await update.message.reply_text(
+                "🖼 Send me the background image."
             )
+
+            return
+
+        if not os.path.exists(background_path):
+
+            await update.message.reply_text(
+                "❌ Background image not found."
+            )
+
+            context.user_data.clear()
 
             return
 
@@ -216,9 +263,13 @@ async def process_image(option, update, context):
 
         result = subject
 
+    # -----------------------------
+    # Save
+    # -----------------------------
+
     output_path = os.path.join(
         TEMP_FOLDER,
-        f"{uuid.uuid4()}.png"
+        f"{uuid.uuid4()}.png",
     )
 
     save_image(
@@ -226,26 +277,42 @@ async def process_image(option, update, context):
         output_path,
     )
 
-    with open(output_path, "rb") as image:
+    # -----------------------------
+    # Send
+    # -----------------------------
 
-        await update.effective_message.reply_document(
-            document=image,
-            filename="background_removed.png",
+    with open(output_path, "rb") as photo:
+
+        await update.message.reply_document(
+            document=photo,
+            filename="MODEX_Background_Remover.png",
+            caption="✅ Finished!",
         )
 
     increment_images()
 
-    # -------------------------
+    # -----------------------------
     # Cleanup
-    # -------------------------
+    # -----------------------------
 
-    for path in (
+    files = [
         image_path,
         context.user_data.get("background"),
         output_path,
-    ):
+    ]
 
-        if path and os.path.exists(path):
-            os.remove(path)
+    for file in files:
 
-    context.user_data.clear()    
+        if file and os.path.exists(file):
+
+            try:
+                os.remove(file)
+            except Exception:
+                pass
+
+    context.user_data.clear()
+
+    await update.message.reply_text(
+        "✨ Done!\n\n"
+        "Send another image whenever you're ready."
+    )

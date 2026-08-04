@@ -1,40 +1,17 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ReplyKeyboardMarkup
 
 
-def image_options():
+def main_keyboard():
     keyboard = [
-        [
-            InlineKeyboardButton(
-                "🟢 Remove Background",
-                callback_data="remove_bg",
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "⚪ White Background",
-                callback_data="white_bg",
-            ),
-            InlineKeyboardButton(
-                "⚫ Black Background",
-                callback_data="black_bg",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                "🔵 Blue Background",
-                callback_data="blue_bg",
-            ),
-            InlineKeyboardButton(
-                "🟥 Red Background",
-                callback_data="red_bg",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                "🖼 Replace Background",
-                callback_data="replace_bg",
-            )
-        ],
+        ["🪄 Remove Background", "🖼 Replace Background"],
+        ["⚪ White Background", "⚫ Black Background"],
+        ["🔵 Blue Background", "🔴 Red Background"],
+        ["📊 Stats", "❓ Help"],
     ]
 
-    return InlineKeyboardMarkup(keyboard)
+    return ReplyKeyboardMarkup(
+        keyboard,
+        resize_keyboard=True,
+        one_time_keyboard=False,
+        input_field_placeholder="Choose an option...",
+    )

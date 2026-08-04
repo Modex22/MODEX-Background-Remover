@@ -4,7 +4,6 @@ from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
     filters,
 )
 
@@ -13,16 +12,13 @@ from database import create_tables
 
 from handlers.commands import (
     start,
-    stats,
     help_command,
+    stats,
 )
 
 from handlers.images import (
     receive_image,
-)
-
-from handlers.callbacks import (
-    button,
+    handle_menu,
 )
 
 TEMP_FOLDER = "temp"
@@ -30,23 +26,43 @@ TEMP_FOLDER = "temp"
 
 def main():
 
+    # Create temp folder
     os.makedirs(TEMP_FOLDER, exist_ok=True)
 
+    # Create database
     create_tables()
 
+    # Create Telegram app
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # -----------------------
+    # ------------------------
     # Commands
-    # -----------------------
+    # ------------------------
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(
+        CommandHandler(
+            "start",
+            start,
+        )
+    )
 
-    # -----------------------
-    # Images
-    # -----------------------
+    app.add_handler(
+        CommandHandler(
+            "help",
+            help_command,
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "stats",
+            stats,
+        )
+    )
+
+    # ------------------------
+    # Receive Images
+    # ------------------------
 
     app.add_handler(
         MessageHandler(
@@ -55,12 +71,15 @@ def main():
         )
     )
 
-    # -----------------------
-    # Inline Buttons
-    # -----------------------
+    # ------------------------
+    # Reply Keyboard Menu
+    # ------------------------
 
     app.add_handler(
-        CallbackQueryHandler(button)
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_menu,
+        )
     )
 
     print("🤖 MODEX Background Remover is running...")
